@@ -1,9 +1,10 @@
+import json
+import os
+
+import networkx as nx
 import numpy as np
 import scipy.sparse as sp
 import torch
-import json
-import os
-import networkx as nx
 
 
 def encode_onehot(labels):
@@ -99,6 +100,21 @@ def load_data(path="../data/cora/", dataset="cora"):
         return process_adni_data(feature, network, labels)
 
 
+def blk_diag(mat_list):
+    nested_list = []
+    n = len(mat_list[0])
+    for j, mat in enumerate(mat_list):
+        row = []
+        for i in range(len(mat_list)):
+            if i == j:
+                row.append(mat)
+            else:
+                row.append(np.zeros((n, n)))
+        nested_list.append(row)
+
+    return np.block(nested_list)
+
+
 def process_adni_data(feature, network, labels):
     F = []
     A = []
@@ -109,7 +125,16 @@ def process_adni_data(feature, network, labels):
         A.append(network[l])
         L.append(labels[l])
 
-    return F, A, L
+    # Create mini-batches
+    mini_size = 20
+    num_batch = 5
+    batch = []
+    for i in range(num_batch):
+        F_mini = np.vstack((F[mini_size*i: mini_size*(i + 1)]))
+        A_mini = blk_diag(A[mini_size*i: mini_size*(i + 1)])
+        L_mini = L[mini_size*i: mini_size*(i + 1)]
+        batch.append((F_mini, A_mini, L_mini))
+    return batch
 
 
 def generate_grid_graph(n_nodes):
